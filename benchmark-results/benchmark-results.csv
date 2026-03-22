@@ -1,0 +1,7 @@
+approach,step,input_tokens,output_tokens,cache_create,cache_read,api_ms,cost_usd
+ACL,Research,10,610,11779,0,6462,0.017784
+ACL,Write,10,440,3699,8213,4045,0.007655
+ACL,Review,10,665,3733,8213,6553,0.008823
+NL,Research,10,1896,3540,8213,21464,0.014736
+NL,Write,10,418,5190,8213,4339,0.009409
+NL,Review,10,1533,5407,8213,16143,0.015255

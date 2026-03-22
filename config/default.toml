@@ -1,0 +1,27 @@
+# ACL Runtime Default Configuration
+# Agent Collaboration Layer v0.1.0
+
+[server]
+host = "0.0.0.0"
+port = 50051
+
+[runtime]
+event_bus_capacity = 10000
+
+[policy.default]
+spawn_limit = 10
+spawn_depth_limit = 3
+budget_usd = 5.0
+ttl_seconds = 600
+max_retries = 3
+tool_access = ["search", "read_docs", "summarize", "write", "code_review"]
+allowed_models = ["anthropic/claude-sonnet", "openai/gpt-4o", "openai/gpt-4o-mini", "google/gemini-pro"]
+
+# Per-agent policy overrides (optional)
+# [policy.agents.supervisor]
+# spawn_limit = 20
+# budget_usd = 10.0
+#
+# [policy.agents.researcher]
+# tool_access = ["search", "read_docs"]
+# budget_usd = 2.0

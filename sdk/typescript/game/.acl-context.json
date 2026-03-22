@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "projectDir": "C:\\Users\\ai00001\\Documents\\dev\\AgentsCollaborationLayer\\sdk\\typescript\\game",
+  "preferredAgent": "auto",
+  "history": [
+    {
+      "prompt": "2048게임 웹앱 형태로 만들어줘",
+      "agent": "Claude Sonnet 4.6",
+      "success": true,
+      "durationMs": 111425,
+      "outputLength": 253,
+      "timestamp": "2026-03-21T10:31:57.353Z"
+    },
+    {
+      "prompt": "Working directory: C:\\Users\\ai00001\\Documents\\dev\\AgentsCollaborationLayer\\sdk\\typescript\\game\nYou have full read/write access to this directory. Create, edit, and delete files directly without asking",
+      "agent": "Claude Sonnet 4.6",
+      "success": true,
+      "durationMs": 52204,
+      "outputLength": 29,
+      "timestamp": "2026-03-21T10:36:33.253Z"
+    },
+    {
+      "prompt": "Working directory: C:\\Users\\ai00001\\Documents\\dev\\AgentsCollaborationLayer\\sdk\\typescript\\game\nYou have full read/write access to this directory. Create, edit, and delete files directly without asking",
+      "agent": "Claude Sonnet 4.6",
+      "success": true,
+      "durationMs": 80296,
+      "outputLength": 222,
+      "timestamp": "2026-03-21T10:39:22.782Z"
+    }
+  ],
+  "lastSession": "2026-03-21T10:41:20.697Z",
+  "sessionNotes": []
+}

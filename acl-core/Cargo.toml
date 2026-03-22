@@ -1,0 +1,23 @@
+[package]
+name = "acl-core"
+version.workspace = true
+edition = "2021"
+description = "Core runtime for Agent Collaboration Layer"
+
+[dependencies]
+acl-proto = { path = "../acl-proto" }
+tokio = { workspace = true }
+async-nats = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+dashmap = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+chrono = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+anyhow = { workspace = true }
+bytes = { workspace = true }
+prost = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "acl-demo"
+version.workspace = true
+edition = "2021"
+description = "Demo: Supervisor + Worker agents on ACL"
+
+[dependencies]
+acl-proto = { path = "../acl-proto" }
+acl-core = { path = "../acl-core" }
+acl-server = { path = "../acl-server" }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }

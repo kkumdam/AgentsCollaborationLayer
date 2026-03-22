@@ -1,0 +1,106 @@
+{
+  "agents": {
+    "codex": {
+      "agent_id": "codex",
+      "display_name": "OpenAI Codex CLI",
+      "model_backend": "openai/codex",
+      "can_do": [
+        "code_generation",
+        "code_edit",
+        "refactor",
+        "implement_feature",
+        "write_function",
+        "create_file",
+        "fix_syntax",
+        "boilerplate"
+      ],
+      "strengths": "Fast code generation, good at implementing features from specs, strong at boilerplate and scaffolding. Best for bulk code writing tasks.",
+      "cost": {
+        "input_cost_per_1k": 0.002,
+        "output_cost_per_1k": 0.008,
+        "tool_call_cost": 0.0
+      },
+      "avg_latency_ms": 15000,
+      "trust_score": 0.88,
+      "max_concurrent": 3,
+      "timeout_seconds": 300
+    },
+    "claude": {
+      "agent_id": "claude",
+      "display_name": "Claude Code CLI",
+      "model_backend": "anthropic/claude-sonnet-4-6",
+      "can_do": [
+        "code_review",
+        "architecture_analysis",
+        "bug_analysis",
+        "test_generation",
+        "documentation",
+        "refactor_plan",
+        "code_explanation",
+        "security_audit",
+        "code_generation",
+        "complex_logic"
+      ],
+      "strengths": "Excellent at analysis, planning, code review, and complex reasoning. Best for architectural decisions, debugging, and quality assurance.",
+      "cost": {
+        "input_cost_per_1k": 0.003,
+        "output_cost_per_1k": 0.015,
+        "tool_call_cost": 0.0
+      },
+      "avg_latency_ms": 20000,
+      "trust_score": 0.95,
+      "max_concurrent": 2,
+      "timeout_seconds": 600
+    },
+    "gemini": {
+      "agent_id": "gemini",
+      "display_name": "Gemini CLI",
+      "model_backend": "google/gemini-2.5-pro",
+      "can_do": [
+        "code_generation",
+        "research",
+        "search_codebase",
+        "documentation",
+        "test_generation",
+        "code_explanation",
+        "api_integration",
+        "data_processing",
+        "large_context_analysis"
+      ],
+      "strengths": "Large context window, good at codebase-wide analysis and research. Strong at documentation, data processing, and API integrations.",
+      "cost": {
+        "input_cost_per_1k": 0.001,
+        "output_cost_per_1k": 0.004,
+        "tool_call_cost": 0.0
+      },
+      "avg_latency_ms": 18000,
+      "trust_score": 0.90,
+      "max_concurrent": 3,
+      "timeout_seconds": 300
+    }
+  },
+  "routing_rules": {
+    "intent_mapping": {
+      "code_generation":      {"primary": "codex",  "fallback": ["gemini", "claude"]},
+      "implement_feature":    {"primary": "codex",  "fallback": ["claude", "gemini"]},
+      "code_review":          {"primary": "claude", "fallback": ["gemini"]},
+      "architecture_analysis":{"primary": "claude", "fallback": ["gemini"]},
+      "bug_analysis":         {"primary": "claude", "fallback": ["gemini", "codex"]},
+      "test_generation":      {"primary": "claude", "fallback": ["gemini", "codex"]},
+      "refactor":             {"primary": "codex",  "fallback": ["claude"]},
+      "refactor_plan":        {"primary": "claude", "fallback": ["gemini"]},
+      "documentation":        {"primary": "gemini", "fallback": ["claude"]},
+      "research":             {"primary": "gemini", "fallback": ["claude"]},
+      "search_codebase":      {"primary": "gemini", "fallback": ["claude"]},
+      "security_audit":       {"primary": "claude", "fallback": ["gemini"]},
+      "fix_syntax":           {"primary": "codex",  "fallback": ["claude"]},
+      "api_integration":      {"primary": "gemini", "fallback": ["codex", "claude"]},
+      "complex_logic":        {"primary": "claude", "fallback": ["codex"]},
+      "boilerplate":          {"primary": "codex",  "fallback": ["gemini"]}
+    },
+    "selection_criteria": {
+      "strategy": "capability_then_trust",
+      "description": "Route by intent → primary agent. If unavailable, try fallbacks in order. Tie-break by trust_score, then latency, then cost."
+    }
+  }
+}

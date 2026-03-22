@@ -1,0 +1,324 @@
+syntax = "proto3";
+
+package acl.v1;
+
+// ═══════════════════════════════════════════════════════════════
+//  Agent Collaboration Layer - Core Protocol Schema
+//  Non-Linguistic Agent Communication & Orchestration Runtime
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Enumerations ───────────────────────────────────────────────
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  PENDING = 1;
+  CLAIMED = 2;
+  RUNNING = 3;
+  DONE = 4;
+  FAILED = 5;
+  CANCELLED = 6;
+}
+
+enum SpawnType {
+  SPAWN_TYPE_UNSPECIFIED = 0;
+  EPHEMERAL = 1;
+  PERSISTENT = 2;
+  VIRTUAL = 3;
+}
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  TASK_CREATED = 1;
+  TASK_CLAIMED = 2;
+  TASK_RUNNING = 3;
+  TASK_DONE = 4;
+  TASK_FAILED = 5;
+  TASK_CANCELLED = 6;
+  ARTIFACT_PUBLISHED = 7;
+  REVIEW_REQUESTED = 8;
+  REVIEW_APPROVED = 9;
+  REVIEW_REJECTED = 10;
+  SUBAGENT_SPAWNED = 11;
+  SUBAGENT_TERMINATED = 12;
+  POLICY_VIOLATION = 13;
+  AGENT_REGISTERED = 14;
+  AGENT_DEREGISTERED = 15;
+}
+
+// ─── Core Messages ──────────────────────────────────────────────
+
+// Action Packet: Primary work request unit
+message ActionPacket {
+  string packet_id = 1;
+  string source_agent = 2;
+  string target_agent = 3;
+  string intent = 4;
+  repeated string input_refs = 5;
+  map<string, string> constraints = 6;
+  string output_schema = 7;
+  float priority = 8;
+  int64 deadline_ms = 9;
+}
+
+// State Update: Task state transition notification
+message StateUpdate {
+  string task_id = 1;
+  TaskState state = 2;
+  string owner_agent = 3;
+  repeated string artifact_refs = 4;
+  float confidence = 5;
+  string failure_reason = 6;
+  int64 timestamp_ms = 7;
+}
+
+// Spawn Request: Subagent lifecycle creation
+message SpawnRequest {
+  string parent_agent = 1;
+  AgentSpec spec = 2;
+  SpawnPolicy policy = 3;
+  SpawnType type = 4;
+  repeated string memory_refs = 5;
+}
+
+message SpawnResponse {
+  bool success = 1;
+  string agent_id = 2;
+  string failure_reason = 3;
+}
+
+// ─── Agent Specification ────────────────────────────────────────
+
+message AgentSpec {
+  string agent_id = 1;
+  string model_backend = 2;
+  repeated string can_do = 3;
+  repeated string requires = 4;
+  repeated string produces = 5;
+}
+
+message SpawnPolicy {
+  int32 spawn_limit = 1;
+  int32 spawn_depth = 2;
+  repeated string tool_access = 3;
+  float budget_usd = 4;
+  int64 ttl_seconds = 5;
+  string memory_scope = 6;
+}
+
+message CostProfile {
+  float input_cost_per_1k = 1;
+  float output_cost_per_1k = 2;
+  float tool_call_cost = 3;
+}
+
+// Agent Capability: Registration contract
+message AgentCapability {
+  string agent_id = 1;
+  string model_backend = 2;
+  repeated string can_do = 3;
+  repeated string requires = 4;
+  repeated string produces = 5;
+  CostProfile cost = 6;
+  float avg_latency_ms = 7;
+  float trust_score = 8;
+}
+
+// ─── Event System ───────────────────────────────────────────────
+
+message Event {
+  string event_id = 1;
+  EventType event_type = 2;
+  bytes payload = 3;
+  int64 timestamp = 4;
+  string source = 5;
+}
+
+// ─── Task Graph ─────────────────────────────────────────────────
+
+message TaskNode {
+  string task_id = 1;
+  string intent = 2;
+  TaskState state = 3;
+  string owner_agent = 4;
+  string parent_task_id = 5;
+  repeated string dependency_ids = 6;
+  repeated string artifact_refs = 7;
+  float priority = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+  int64 deadline_ms = 11;
+  map<string, string> constraints = 12;
+  string output_schema = 13;
+  float confidence = 14;
+  string failure_reason = 15;
+  int32 retry_count = 16;
+  int32 max_retries = 17;
+}
+
+// ─── Artifact Store ─────────────────────────────────────────────
+
+message Artifact {
+  string artifact_id = 1;
+  string artifact_type = 2;
+  string content_hash = 3;
+  bytes content = 4;
+  string producer_agent = 5;
+  string task_id = 6;
+  int64 created_at = 7;
+  map<string, string> metadata = 8;
+}
+
+message ArtifactReference {
+  string uri = 1;  // artifact://type/hash
+  string artifact_type = 2;
+  string content_hash = 3;
+}
+
+// ─── Query System ───────────────────────────────────────────────
+
+message QueryRequest {
+  string query_id = 1;
+  string source_agent = 2;
+  oneof query {
+    TaskQuery task_query = 3;
+    AgentQuery agent_query = 4;
+    ArtifactQuery artifact_query = 5;
+  }
+}
+
+message TaskQuery {
+  string task_id = 1;
+  TaskState state_filter = 2;
+  string owner_filter = 3;
+  string intent_filter = 4;
+}
+
+message AgentQuery {
+  string agent_id = 1;
+  string capability_filter = 2;
+  string model_filter = 3;
+}
+
+message ArtifactQuery {
+  string artifact_id = 1;
+  string type_filter = 2;
+  string task_id_filter = 3;
+}
+
+message QueryResponse {
+  string query_id = 1;
+  repeated TaskNode tasks = 2;
+  repeated AgentCapability agents = 3;
+  repeated ArtifactReference artifacts = 4;
+}
+
+// ─── gRPC Service Definitions ───────────────────────────────────
+
+// Agent Registry Service
+service AgentRegistryService {
+  // Register a new agent with capabilities
+  rpc RegisterAgent(AgentCapability) returns (RegisterResponse);
+  // Deregister an agent
+  rpc DeregisterAgent(DeregisterRequest) returns (DeregisterResponse);
+  // Find agents by capability
+  rpc FindAgents(AgentQuery) returns (QueryResponse);
+  // List all registered agents
+  rpc ListAgents(ListAgentsRequest) returns (QueryResponse);
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string agent_id = 2;
+  string message = 3;
+}
+
+message DeregisterRequest {
+  string agent_id = 1;
+}
+
+message DeregisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListAgentsRequest {}
+
+// Task Service
+service TaskService {
+  // Submit a new task (creates ActionPacket -> TaskNode)
+  rpc SubmitTask(ActionPacket) returns (TaskResponse);
+  // Claim a pending task
+  rpc ClaimTask(ClaimRequest) returns (TaskResponse);
+  // Update task state
+  rpc UpdateTaskState(StateUpdate) returns (TaskResponse);
+  // Query tasks
+  rpc QueryTasks(TaskQuery) returns (QueryResponse);
+  // Get task by ID
+  rpc GetTask(GetTaskRequest) returns (TaskNode);
+  // Subscribe to task events (server-side streaming)
+  rpc SubscribeEvents(SubscribeRequest) returns (stream Event);
+}
+
+message TaskResponse {
+  bool success = 1;
+  string task_id = 2;
+  string message = 3;
+}
+
+message ClaimRequest {
+  string task_id = 1;
+  string agent_id = 2;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message SubscribeRequest {
+  string agent_id = 1;
+  repeated EventType event_types = 2;
+  string task_id_filter = 3;
+}
+
+// Spawn Service
+service SpawnService {
+  // Request to spawn a new subagent
+  rpc Spawn(SpawnRequest) returns (SpawnResponse);
+  // Terminate a subagent
+  rpc Terminate(TerminateRequest) returns (TerminateResponse);
+  // Get spawn tree for an agent
+  rpc GetSpawnTree(GetSpawnTreeRequest) returns (SpawnTree);
+}
+
+message TerminateRequest {
+  string agent_id = 1;
+  string reason = 2;
+}
+
+message TerminateResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetSpawnTreeRequest {
+  string root_agent_id = 1;
+}
+
+message SpawnTree {
+  string agent_id = 1;
+  SpawnType type = 2;
+  SpawnPolicy policy = 3;
+  float budget_used = 4;
+  int64 alive_since = 5;
+  repeated SpawnTree children = 6;
+}
+
+// Artifact Service
+service ArtifactService {
+  // Publish an artifact
+  rpc PublishArtifact(Artifact) returns (ArtifactReference);
+  // Retrieve an artifact
+  rpc GetArtifact(ArtifactReference) returns (Artifact);
+  // Query artifacts
+  rpc QueryArtifacts(ArtifactQuery) returns (QueryResponse);
+}

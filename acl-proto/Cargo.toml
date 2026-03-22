@@ -1,0 +1,16 @@
+[package]
+name = "acl-proto"
+version.workspace = true
+edition = "2021"
+description = "Protocol Buffers definitions for ACL"
+
+[dependencies]
+prost = { workspace = true }
+prost-types = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = "0.14"
+serde = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }
+tonic-prost-build = "0.14"
