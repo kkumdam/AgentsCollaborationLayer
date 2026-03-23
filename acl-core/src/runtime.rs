@@ -119,9 +119,18 @@ impl AclRuntime {
     ) -> AclResult<TaskNode> {
         let task = self.task_graph.create_task(packet, dependencies)?;
 
-        self.event_bus.publish_state_update(
+        self.event_bus.publish(
             EventType::TaskCreated,
-            &task.task_id,
+            serde_json::json!({
+                "task_id": &task.task_id,
+                "source_agent": &packet.source_agent,
+                "intent": &packet.intent,
+                "priority": packet.priority,
+                "target_agent": &packet.target_agent,
+                "constraints_keys": packet.constraints.keys().collect::<Vec<_>>(),
+            })
+            .to_string()
+            .into_bytes(),
             &packet.source_agent,
         )?;
 

@@ -56,9 +56,12 @@ impl AgentRegistry {
 
     /// Find agents that can handle a specific intent/capability
     pub fn find_by_capability(&self, capability: &str) -> Vec<AgentCapability> {
+        let normalized = capability.trim().to_lowercase();
         self.agents
             .iter()
-            .filter(|entry| entry.value().can_do.iter().any(|c| c == capability))
+            .filter(|entry| {
+                entry.value().can_do.iter().any(|c| c.trim().to_lowercase() == normalized)
+            })
             .map(|entry| entry.value().clone())
             .collect()
     }
@@ -75,7 +78,8 @@ impl AgentRegistry {
     /// Route a task intent to the best available agent
     /// Selection criteria: capability match -> trust score -> latency -> cost
     pub fn route_intent(&self, intent: &str) -> AclResult<AgentCapability> {
-        let candidates = self.find_by_capability(intent);
+        let normalized = intent.trim();
+        let candidates = self.find_by_capability(normalized);
         if candidates.is_empty() {
             return Err(AclError::NoCapableAgent(intent.to_string()));
         }

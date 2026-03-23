@@ -61,6 +61,8 @@ impl AclServer {
         info!(addr = %self.addr, "ACL gRPC server starting");
 
         Server::builder()
+            .max_decoding_message_size(16 * 1024 * 1024)  // 16MB
+            .max_encoding_message_size(16 * 1024 * 1024)   // 16MB
             .add_service(AgentRegistryServiceServer::new(registry_service))
             .add_service(TaskServiceServer::new(task_service))
             .add_service(SpawnServiceServer::new(spawn_service))

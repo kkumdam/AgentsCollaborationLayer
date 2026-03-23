@@ -164,6 +164,51 @@ cmd_gen_proto() {
     log_info "Generated: .skills/acl/scripts/acl_pb2.py, acl_pb2_grpc.py"
 }
 
+cmd_submit() {
+    # Submit a task to the ACL server via the Python client
+    # Supports --prompt-file for multi-line prompts
+    local source="${1:?Usage: submit <source> <intent> [--prompt-file <file>] [--priority <p>]}"
+    local intent="${2:?Usage: submit <source> <intent> [--prompt-file <file>] [--priority <p>]}"
+    shift 2
+
+    local extra_args=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --prompt-file)
+                extra_args+=("--prompt-file" "$2")
+                shift 2
+                ;;
+            --prompt)
+                extra_args+=("--prompt" "$2")
+                shift 2
+                ;;
+            --priority)
+                extra_args+=("--priority" "$2")
+                shift 2
+                ;;
+            --constraints)
+                extra_args+=("--constraints" "$2")
+                shift 2
+                ;;
+            --constraints-file)
+                extra_args+=("--constraints-file" "$2")
+                shift 2
+                ;;
+            *)
+                extra_args+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    log_info "Submitting task: source=$source intent=$intent"
+    cd "$ACL_ROOT"
+    python3 .skills/acl/scripts/acl_client.py submit \
+        --source "$source" \
+        --intent "$intent" \
+        "${extra_args[@]}"
+}
+
 # ─── Main ────────────────────────────────────────────────────────
 
 case "${1:-help}" in
@@ -174,6 +219,7 @@ case "${1:-help}" in
     logs)       cmd_logs "${2:-50}" ;;
     demo)       cmd_demo ;;
     gen-proto)  cmd_gen_proto ;;
+    submit)     cmd_submit "${@:2}" ;;
     help|*)
         echo "ACL Server Management"
         echo ""
@@ -187,5 +233,6 @@ case "${1:-help}" in
         echo "  logs [N]           Show last N lines of server logs"
         echo "  demo               Run the demo pipeline"
         echo "  gen-proto          Generate Python gRPC bindings"
+        echo "  submit <src> <intent> [opts]  Submit a task (--prompt-file, --prompt, --priority)"
         ;;
 esac

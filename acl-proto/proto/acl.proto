@@ -58,6 +58,7 @@ message ActionPacket {
   string output_schema = 7;
   float priority = 8;
   int64 deadline_ms = 9;
+  string prompt = 10;  // Multi-line natural language prompt for the task
 }
 
 // State Update: Task state transition notification
@@ -153,6 +154,7 @@ message TaskNode {
   string failure_reason = 15;
   int32 retry_count = 16;
   int32 max_retries = 17;
+  string prompt = 18;  // Original prompt text from ActionPacket
 }
 
 // ─── Artifact Store ─────────────────────────────────────────────

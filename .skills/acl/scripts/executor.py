@@ -17,6 +17,7 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
+import atexit
 
 
 @dataclass
@@ -44,6 +45,9 @@ class ExecutionResult:
 
 class CliExecutor:
     """Executes AI CLI tools and captures their output."""
+
+    # Constant for prompt size limit
+    PROMPT_ARG_MAX = 4096
 
     # CLI command templates
     CLI_COMMANDS = {
@@ -75,6 +79,35 @@ class CliExecutor:
 
     def __init__(self, workdir: str = "."):
         self.workdir = os.path.abspath(workdir)
+        self._temp_files: list[str] = []  # Track temp files for cleanup
+        atexit.register(self._cleanup_temp_files)
+
+    def _needs_temp_file(self, prompt: str) -> bool:
+        """Check if prompt should be written to a temp file."""
+        return len(prompt) > self.PROMPT_ARG_MAX or "\n" in prompt
+
+    def _write_prompt_file(self, prompt: str) -> str:
+        """Write prompt to a temporary file and return its path."""
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".prompt.txt",
+            prefix="acl-",
+            delete=False,
+            encoding="utf-8",
+        ) as f:
+            f.write(prompt)
+            temp_path = f.name
+        self._temp_files.append(temp_path)
+        return temp_path
+
+    def _cleanup_temp_files(self):
+        """Clean up temporary prompt files."""
+        for temp_path in self._temp_files:
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception:
+                pass
 
     def check_available(self, cli_name: str) -> bool:
         """Check if a CLI tool is available on PATH."""
@@ -132,8 +165,13 @@ class CliExecutor:
         config = self.CLI_COMMANDS[cli_name]
         cwd = workdir or self.workdir
 
+        # Check if prompt needs temp file
+        prompt_file_path: Optional[str] = None
+        if self._needs_temp_file(prompt):
+            prompt_file_path = self._write_prompt_file(prompt)
+
         # Build command
-        cmd = self._build_command(cli_name, config, prompt, context_files, auto_approve)
+        cmd = self._build_command(cli_name, config, prompt, context_files, auto_approve, prompt_file_path)
 
         start_time = time.time()
         try:
@@ -184,6 +222,14 @@ class CliExecutor:
                 duration_ms=duration_ms,
                 exit_code=-1,
             )
+        finally:
+            # Clean up temp file if it was created
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                try:
+                    os.remove(prompt_file_path)
+                    self._temp_files.remove(prompt_file_path)
+                except Exception:
+                    pass
 
     def execute_parallel(
         self,
@@ -199,10 +245,13 @@ class CliExecutor:
         """
         import concurrent.futures
 
-        results = []
+        # Pre-allocate results list
+        results = [None] * len(tasks)
+        future_to_index = {}
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as pool:
             futures = {}
-            for task in tasks:
+            for idx, task in enumerate(tasks):
                 future = pool.submit(
                     self.execute,
                     cli_name=task["cli_name"],
@@ -214,9 +263,22 @@ class CliExecutor:
                     auto_approve=task.get("auto_approve", True),
                 )
                 futures[future] = task
+                future_to_index[future] = idx
 
             for future in concurrent.futures.as_completed(futures):
-                results.append(future.result())
+                idx = future_to_index[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    # Create a failed ExecutionResult on exception
+                    results[idx] = ExecutionResult(
+                        agent_id=futures[future].get("cli_name", "unknown"),
+                        success=False,
+                        output="",
+                        error=str(e),
+                        duration_ms=0,
+                        exit_code=-1,
+                    )
 
         return results
 
@@ -227,9 +289,16 @@ class CliExecutor:
         prompt: str,
         context_files: Optional[list[str]],
         auto_approve: bool,
+        prompt_file_path: Optional[str] = None,
     ) -> list[str]:
         """Build the CLI command with appropriate flags."""
         cmd = [config["bin"]]
+
+        # Use prompt file content if provided, otherwise use raw prompt
+        effective_prompt = prompt
+        if prompt_file_path:
+            with open(prompt_file_path, "r", encoding="utf-8") as f:
+                effective_prompt = f.read()
 
         if cli_name == "codex":
             if auto_approve and config["approval_flag"]:
@@ -240,12 +309,12 @@ class CliExecutor:
             if context_files:
                 for f in context_files:
                     cmd.extend(["--file", f])
-            cmd.append(prompt)
+            cmd.append(effective_prompt)
 
         elif cli_name == "claude":
             if config["prompt_flag"]:
                 cmd.append(config["prompt_flag"])
-            cmd.append(prompt)
+            cmd.append(effective_prompt)
             if auto_approve and config["approval_flag"]:
                 cmd.append(config["approval_flag"])
             if config["quiet_flag"]:
@@ -256,7 +325,7 @@ class CliExecutor:
                 cmd.append(config["approval_flag"])
             if config["prompt_flag"]:
                 cmd.append(config["prompt_flag"])
-            cmd.append(prompt)
+            cmd.append(effective_prompt)
 
         return cmd
 

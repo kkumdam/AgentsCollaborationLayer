@@ -81,6 +81,7 @@ impl TaskGraphEngine {
             failure_reason: String::new(),
             retry_count: 0,
             max_retries: 3,
+            prompt: packet.prompt.clone(),
         };
 
         // Register this task as a dependent of its dependencies

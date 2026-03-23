@@ -50,7 +50,13 @@ class AclClient:
 
     def __init__(self, address: str = "localhost:50051"):
         self.address = address
-        self.channel = grpc.insecure_channel(address)
+        self.channel = grpc.insecure_channel(
+            address,
+            options=[
+                ('grpc.max_send_message_length', 16 * 1024 * 1024),
+                ('grpc.max_receive_message_length', 16 * 1024 * 1024),
+            ],
+        )
         self.registry_stub = acl_pb2_grpc.AgentRegistryServiceStub(self.channel)
         self.task_stub = acl_pb2_grpc.TaskServiceStub(self.channel)
         self.spawn_stub = acl_pb2_grpc.SpawnServiceStub(self.channel)
@@ -351,7 +357,10 @@ def main():
     submit.add_argument("--intent", required=True)
     submit.add_argument("--target", default="")
     submit.add_argument("--priority", type=float, default=0.5)
+    submit.add_argument("--prompt", default="", help="Task prompt text")
+    submit.add_argument("--prompt-file", default="", help="Read prompt from file (use - for stdin)")
     submit.add_argument("--constraints", default="{}", help="JSON string of constraints")
+    submit.add_argument("--constraints-file", default="", help="Read constraints JSON from file")
 
     # claim
     claim = sub.add_parser("claim", help="Claim a task")
@@ -407,7 +416,28 @@ def main():
                 trust_score=args.trust_score,
             )
         elif args.command == "submit":
-            constraints = json.loads(args.constraints)
+            # Read prompt from file or args
+            prompt_text = ""
+            if args.prompt_file:
+                if args.prompt_file == "-":
+                    prompt_text = sys.stdin.read()
+                elif os.path.isfile(args.prompt_file):
+                    with open(args.prompt_file, "r", encoding="utf-8") as f:
+                        prompt_text = f.read()
+            elif args.prompt:
+                prompt_text = args.prompt
+
+            # Read constraints from file or args
+            if args.constraints_file and os.path.isfile(args.constraints_file):
+                with open(args.constraints_file, "r", encoding="utf-8") as f:
+                    constraints = json.load(f)
+            else:
+                constraints = json.loads(args.constraints)
+
+            # Inject prompt into constraints if provided
+            if prompt_text:
+                constraints["prompt"] = prompt_text
+
             task_id = client.submit_task(
                 source_agent=args.source,
                 intent=args.intent,

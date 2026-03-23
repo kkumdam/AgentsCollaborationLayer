@@ -26,6 +26,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import re
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -36,6 +37,23 @@ from pipeline import (
     feature_pipeline, bugfix_pipeline, refactor_pipeline, review_pipeline,
     custom_pipeline,
 )
+
+
+def _read_prompt(args) -> str:
+    """
+    Read prompt from args, supporting three sources:
+    1. args.prompt_file == "-" → read from stdin
+    2. args.prompt_file exists → read from file
+    3. fallback → use args.description
+    """
+    if hasattr(args, "prompt_file") and args.prompt_file:
+        if args.prompt_file == "-":
+            return sys.stdin.read()
+        elif os.path.isfile(args.prompt_file):
+            with open(args.prompt_file, "r", encoding="utf-8") as f:
+                return f.read()
+    # Fallback to description
+    return args.description
 
 
 class Router:
@@ -233,6 +251,7 @@ class Orchestrator:
         previous_results: dict[str, ExecutionResult],
     ) -> str:
         """Build the actual prompt, enriching with context from previous task results."""
+        MAX_CONTEXT_TOTAL = 8000
         prompt = task.prompt_template
 
         # Inject context from dependency results
@@ -250,8 +269,18 @@ class Orchestrator:
                         )
 
             if context_parts:
-                prompt += "\n\n--- Context from previous steps ---\n"
-                prompt += "\n\n".join(context_parts)
+                context_str = "\n\n".join(context_parts)
+                full_with_context = prompt + "\n\n--- Context from previous steps ---\n" + context_str
+
+                # Apply total context size limit
+                if len(full_with_context) > MAX_CONTEXT_TOTAL:
+                    # Truncate proportionally
+                    base_len = len(prompt)
+                    available = MAX_CONTEXT_TOTAL - base_len - 30  # Reserve for separator
+                    context_str = context_str[:available] + "\n... (truncated)"
+                    prompt = prompt + "\n\n--- Context from previous steps ---\n" + context_str
+                else:
+                    prompt = full_with_context
 
         return prompt
 
@@ -282,6 +311,16 @@ class Orchestrator:
         succeeded = sum(1 for r in results.values() if r.success)
         failed = sum(1 for r in results.values() if not r.success)
 
+        def smart_truncate(text: str, max_chars: int = 500) -> str:
+            """Truncate at the last complete line within max_chars."""
+            if len(text) <= max_chars:
+                return text
+            truncated = text[:max_chars]
+            last_newline = truncated.rfind("\n")
+            if last_newline > 0:
+                return truncated[:last_newline]
+            return truncated
+
         return {
             "pipeline": pipeline.name,
             "description": pipeline.description,
@@ -294,8 +333,8 @@ class Orchestrator:
                     "agent": r.agent_id,
                     "success": r.success,
                     "duration_ms": r.duration_ms,
-                    "output_preview": r.output[:200] if r.output else "",
-                    "error": r.error[:200] if r.error else "",
+                    "output_preview": smart_truncate(r.output) if r.output else "",
+                    "error": smart_truncate(r.error) if r.error else "",
                 }
                 for tid, r in results.items()
             },
@@ -381,18 +420,21 @@ Examples:
     feat.add_argument("description", help="Feature description")
     feat.add_argument("--target-files", default="", help="Target files to modify")
     feat.add_argument("--tests", default="", help="Test requirements")
+    feat.add_argument("--prompt-file", default="", help="Read prompt from file (use - for stdin)")
 
     # bugfix
     bug = sub.add_parser("bugfix", help="Fix a bug")
     bug.add_argument("description", help="Bug description")
     bug.add_argument("--error-log", default="", help="Error log or stack trace")
     bug.add_argument("--affected-files", default="", help="Affected files")
+    bug.add_argument("--prompt-file", default="", help="Read prompt from file (use - for stdin)")
 
     # refactor
     ref = sub.add_parser("refactor", help="Refactor code")
     ref.add_argument("description", help="Refactoring goal")
     ref.add_argument("--scope", default="", help="Files/modules in scope")
     ref.add_argument("--constraints", default="", help="Constraints")
+    ref.add_argument("--prompt-file", default="", help="Read prompt from file (use - for stdin)")
 
     # review
     rev = sub.add_parser("review", help="Review code")
@@ -434,20 +476,23 @@ Examples:
     dry_run = getattr(args, "dry_run", False)
 
     if args.command == "feature":
+        description = _read_prompt(args)
         result = orch.run_pipeline(
-            feature_pipeline(args.description, target_files=args.target_files,
+            feature_pipeline(description, target_files=args.target_files,
                              test_requirements=args.tests),
             dry_run=dry_run, verbose=verbose,
         )
     elif args.command == "bugfix":
+        description = _read_prompt(args)
         result = orch.run_pipeline(
-            bugfix_pipeline(args.description, error_log=args.error_log,
+            bugfix_pipeline(description, error_log=args.error_log,
                             affected_files=args.affected_files),
             dry_run=dry_run, verbose=verbose,
         )
     elif args.command == "refactor":
+        description = _read_prompt(args)
         result = orch.run_pipeline(
-            refactor_pipeline(args.description, scope=args.scope,
+            refactor_pipeline(description, scope=args.scope,
                               constraints=args.constraints),
             dry_run=dry_run, verbose=verbose,
         )

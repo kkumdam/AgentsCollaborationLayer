@@ -16,6 +16,7 @@ CLI agent based on capability profiles.
 import json
 import os
 import time
+import string
 from dataclasses import dataclass, field
 from typing import Optional, Callable
 from pathlib import Path
@@ -75,13 +76,11 @@ class Pipeline:
         return waves
 
     def render_prompts(self, variables: dict) -> dict[str, str]:
-        """Fill in prompt templates with provided variables."""
+        """Fill in prompt templates with provided variables using safe substitution."""
         rendered = {}
         for task in self.tasks:
-            prompt = task.prompt_template
-            for key, value in variables.items():
-                prompt = prompt.replace(f"{{{{{key}}}}}", str(value))
-            rendered[task.task_id] = prompt
+            template = string.Template(task.prompt_template)
+            rendered[task.task_id] = template.safe_substitute(variables)
         return rendered
 
     def visualize(self) -> str:
