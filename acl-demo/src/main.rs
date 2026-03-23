@@ -152,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         output_schema: "research_report".to_string(),
         priority: 0.9,
         deadline_ms: Utc::now().timestamp_millis() + 300_000, // 5 min
+        prompt: String::new(),
     };
 
     let research_task = runtime.submit_task(&research_packet, vec![]).unwrap();
@@ -174,6 +175,7 @@ async fn main() -> anyhow::Result<()> {
         output_schema: "final_document".to_string(),
         priority: 0.8,
         deadline_ms: Utc::now().timestamp_millis() + 600_000,
+        prompt: String::new(),
     };
 
     let write_task = runtime
@@ -199,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
         output_schema: "review_verdict".to_string(),
         priority: 0.7,
         deadline_ms: 0,
+        prompt: String::new(),
     };
 
     let review_task = runtime
