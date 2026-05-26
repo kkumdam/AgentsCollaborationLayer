@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACL — Agent Collaboration Layer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg-deep: #050a18;
+    --bg-dark: #0a1128;
+    --bg-card: #111d3a;
+    --bg-card-hover: #152247;
+    --accent-cyan: #38bdf8;
+    --accent-emerald: #34d399;
+    --accent-violet: #a78bfa;
+    --accent-amber: #fbbf24;
+    --accent-rose: #fb7185;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --glow-cyan: rgba(56, 189, 248, 0.15);
+    --glow-emerald: rgba(52, 211, 153, 0.15);
+    --glow-violet: rgba(167, 139, 250, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  /* ─── Slide Container ─── */
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse 800px 600px at 20% 50%, var(--glow-cyan), transparent),
+      radial-gradient(ellipse 600px 400px at 80% 30%, var(--glow-violet), transparent);
+    opacity: 0;
+    transition: opacity 1.2s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .slide.visible::before { opacity: 1; }
+
+  .slide-inner {
+    max-width: 1200px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── Navigation ─── */
+  .nav-dots {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    z-index: 1000;
+  }
+  .nav-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.4s ease;
+    border: none;
+    position: relative;
+  }
+  .nav-dot::after {
+    content: attr(data-label);
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .nav-dot:hover::after { opacity: 1; }
+  .nav-dot.active {
+    background: var(--accent-cyan);
+    box-shadow: 0 0 12px var(--accent-cyan);
+    transform: scale(1.3);
+  }
+
+  /* ─── Floating Particles ─── */
+  .particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.15;
+    animation: float linear infinite;
+  }
+  @keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.15; }
+    90% { opacity: 0.15; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+  }
+
+  /* ─── Reveal Animations ─── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1 { transition-delay: 0.15s; }
+  .reveal-delay-2 { transition-delay: 0.3s; }
+  .reveal-delay-3 { transition-delay: 0.45s; }
+  .reveal-delay-4 { transition-delay: 0.6s; }
+  .reveal-delay-5 { transition-delay: 0.75s; }
+  .reveal-delay-6 { transition-delay: 0.9s; }
+
+  .reveal-scale {
+    opacity: 0;
+    transform: scale(0.85);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-scale.show { opacity: 1; transform: scale(1); }
+
+  .reveal-left {
+    opacity: 0;
+    transform: translateX(-60px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-left.show { opacity: 1; transform: translateX(0); }
+
+  .reveal-right {
+    opacity: 0;
+    transform: translateX(60px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal-right.show { opacity: 1; transform: translateX(0); }
+
+  /* ─── Typography ─── */
+  .slide-number {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  h1 {
+    font-size: 4.2rem;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+
+  h2 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -1.5px;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-emerald {
+    background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 1.25rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    max-width: 720px;
+  }
+
+  /* ─── Cards ─── */
+  .card-grid {
+    display: grid;
+    gap: 20px;
+    margin-top: 36px;
+  }
+  .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .card {
+    background: linear-gradient(145deg, var(--bg-card), rgba(17, 29, 58, 0.6));
+    border: 1px solid rgba(56, 189, 248, 0.08);
+    border-radius: 16px;
+    padding: 32px;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), transparent, rgba(167, 139, 250, 0.2));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: xor;
+    -webkit-mask-composite: xor;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .card:hover::before { opacity: 1; }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+
+  .card-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+  }
+  .card-icon.cyan { background: linear-gradient(135deg, rgba(56,189,248,0.2), rgba(56,189,248,0.05)); color: var(--accent-cyan); }
+  .card-icon.emerald { background: linear-gradient(135deg, rgba(52,211,153,0.2), rgba(52,211,153,0.05)); color: var(--accent-emerald); }
+  .card-icon.violet { background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.05)); color: var(--accent-violet); }
+  .card-icon.amber { background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.05)); color: var(--accent-amber); }
+  .card-icon.rose { background: linear-gradient(135deg, rgba(251,113,133,0.2), rgba(251,113,133,0.05)); color: var(--accent-rose); }
+
+  .card-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+  }
+  .card-desc {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+
+  /* ─── Metric Cards ─── */
+  .metric-card {
+    background: linear-gradient(145deg, var(--bg-card), rgba(17, 29, 58, 0.6));
+    border: 1px solid rgba(56, 189, 248, 0.08);
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+  }
+  .metric-value {
+    font-size: 3rem;
+    font-weight: 900;
+    letter-spacing: -2px;
+    margin-bottom: 6px;
+  }
+  .metric-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ─── Bar Charts ─── */
+  .bar-group { margin: 12px 0; }
+  .bar-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+  }
+  .bar-label-row .label { color: var(--text-secondary); font-weight: 500; }
+  .bar-label-row .value { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .bar-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    width: 0;
+  }
+  .bar-fill.acl { background: linear-gradient(90deg, #059669, #34d399); }
+  .bar-fill.nl { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .bar-fill.cyan { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+  .bar-fill.violet { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+  .bar-fill.amber { background: linear-gradient(90deg, #d97706, #fbbf24); }
+
+  .show .bar-fill { width: var(--w); }
+
+  /* ─── Architecture Diagram ─── */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 40px 0;
+    flex-wrap: wrap;
+  }
+  .arch-node {
+    background: linear-gradient(145deg, var(--bg-card), var(--bg-card-hover));
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    border-radius: 12px;
+    padding: 16px 24px;
+    text-align: center;
+    min-width: 140px;
+    transition: all 0.4s ease;
+  }
+  .arch-node:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 30px var(--glow-cyan);
+  }
+  .arch-node-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .arch-node-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+  }
+  .arch-arrow {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    animation: pulse-arrow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-arrow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; color: var(--accent-cyan); }
+  }
+
+  .wave-group {
+    display: flex;
+    gap: 12px;
+  }
+
+  /* ─── Table ─── */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+    margin-top: 20px;
+  }
+  .data-table th {
+    background: rgba(56, 189, 248, 0.08);
+    color: var(--accent-cyan);
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .data-table th:first-child { border-radius: 10px 0 0 0; }
+  .data-table th:last-child { border-radius: 0 10px 0 0; }
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+  }
+  .data-table tr:hover td { background: rgba(56, 189, 248, 0.03); }
+  .data-table .num { text-align: right; }
+  .data-table .highlight { color: var(--accent-emerald); font-weight: 600; }
+  .data-table .danger { color: var(--accent-rose); }
+
+  /* ─── Tags ─── */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tag-real { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); }
+  .tag-sim { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
+
+  /* ─── Comparison Section ─── */
+  .vs-container {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: start;
+    margin-top: 32px;
+  }
+  .vs-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 40px;
+  }
+  .vs-badge {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--accent-amber);
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: 50%;
+    width: 52px; height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vs-line {
+    width: 1px;
+    height: 200px;
+    background: linear-gradient(to bottom, transparent, var(--text-muted), transparent);
+  }
+
+  /* ─── Footer ─── */
+  .slide-footer {
+    position: absolute;
+    bottom: 32px;
+    left: 80px;
+    right: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    z-index: 1;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .slide { padding: 40px 24px; }
+    h1 { font-size: 2.6rem; }
+    h2 { font-size: 2rem; }
+    .card-grid-3, .card-grid-4 { grid-template-columns: 1fr; }
+    .card-grid-2 { grid-template-columns: 1fr; }
+    .vs-container { grid-template-columns: 1fr; }
+    .vs-divider { display: none; }
+    .nav-dots { display: none; }
+    .arch-flow { flex-direction: column; }
+    .slide-footer { left: 24px; right: 24px; }
+  }
+
+  /* ─── Animated Underline ─── */
+  .animated-line {
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet));
+    border-radius: 2px;
+    margin: 20px 0 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .animated-line::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+  }
+
+  /* ─── Pulse Ring ─── */
+  .pulse-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--accent-cyan);
+    opacity: 0;
+    animation: pulsate 3s ease-out infinite;
+  }
+  @keyframes pulsate {
+    0% { transform: scale(0.5); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  /* ─── Typewriter ─── */
+  .typewriter {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--accent-emerald);
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid var(--accent-emerald);
+    animation: typing 3s steps(40) 1s forwards, blink 0.8s step-end infinite;
+    width: 0;
+  }
+  @keyframes typing {
+    to { width: 100%; }
+  }
+  @keyframes blink {
+    50% { border-color: transparent; }
+  }
+
+  /* ─── Counter Animation ─── */
+  .counter { font-variant-numeric: tabular-nums; }
+
+  /* ─── Glow Effect ─── */
+  .glow-box {
+    position: relative;
+  }
+  .glow-box::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet), var(--accent-emerald));
+    z-index: -1;
+    opacity: 0;
+    filter: blur(20px);
+    transition: opacity 0.6s ease;
+  }
+  .glow-box:hover::after { opacity: 0.3; }
+
+  /* ─── Scroll Progress ─── */
+  .scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet), var(--accent-emerald));
+    z-index: 9999;
+    transition: width 0.1s linear;
+  }
+
+  /* ─── Quote ─── */
+  .quote-block {
+    border-left: 3px solid var(--accent-violet);
+    padding: 20px 28px;
+    background: rgba(167, 139, 250, 0.05);
+    border-radius: 0 12px 12px 0;
+    margin: 24px 0;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  /* ─── Timeline ─── */
+  .timeline { position: relative; margin: 40px 0; padding-left: 40px; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-violet), var(--accent-emerald));
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 32px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -33px; top: 6px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    border: 2px solid var(--bg-deep);
+    box-shadow: 0 0 12px var(--glow-cyan);
+  }
+  .timeline-item:nth-child(2)::before { background: var(--accent-violet); box-shadow: 0 0 12px var(--glow-violet); }
+  .timeline-item:nth-child(3)::before { background: var(--accent-emerald); box-shadow: 0 0 12px var(--glow-emerald); }
+  .timeline-title { font-weight: 700; font-size: 1rem; margin-bottom: 4px; }
+  .timeline-desc { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Scroll Progress -->
+<div class="scroll-progress" id="scrollProgress"></div>
+
+<!-- Floating Particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Nav Dots -->
+<nav class="nav-dots" id="navDots">
+  <button class="nav-dot active" data-slide="0" data-label="Title"></button>
+  <button class="nav-dot" data-slide="1" data-label="문제 인식"></button>
+  <button class="nav-dot" data-slide="2" data-label="ACL 소개"></button>
+  <button class="nav-dot" data-slide="3" data-label="아키텍처"></button>
+  <button class="nav-dot" data-slide="4" data-label="DAG 파이프라인"></button>
+  <button class="nav-dot" data-slide="5" data-label="멀티 에이전트"></button>
+  <button class="nav-dot" data-slide="6" data-label="실측 성능"></button>
+  <button class="nav-dot" data-slide="7" data-label="비용 절감"></button>
+  <button class="nav-dot" data-slide="8" data-label="비교 분석"></button>
+  <button class="nav-dot" data-slide="9" data-label="기대 효과"></button>
+  <button class="nav-dot" data-slide="10" data-label="미래 비전"></button>
+</nav>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 0 — TITLE                                 -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-0" style="background: radial-gradient(ellipse at 50% 40%, rgba(56,189,248,0.08), transparent 70%);">
+  <div class="slide-inner" style="text-align: center;">
+    <div class="reveal" style="margin-bottom: 24px;">
+      <div style="display:inline-flex;align-items:center;gap:12px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.15);border-radius:40px;padding:8px 20px;">
+        <span style="width:8px;height:8px;background:var(--accent-emerald);border-radius:50%;box-shadow:0 0 8px var(--accent-emerald);"></span>
+        <span style="font-size:0.78rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent-cyan);">Agent Collaboration Layer v0.1.0</span>
+      </div>
+    </div>
+    <h1 class="reveal reveal-delay-1" style="font-size:5rem;">
+      <span class="gradient-text">에이전트가 협업하는</span><br>새로운 방법
+    </h1>
+    <p class="reveal reveal-delay-2 subtitle" style="margin:0 auto 32px;max-width:660px;">
+      자연어 대신 <strong style="color:var(--accent-cyan)">타입 기반 프로토콜</strong>로 소통하는<br>
+      고성능 멀티-에이전트 오케스트레이션 런타임
+    </p>
+    <div class="reveal reveal-delay-3" style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.82rem;">
+        <span style="color:var(--accent-emerald);">●</span> 55%+ 토큰 절감
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.82rem;">
+        <span style="color:var(--accent-cyan);">●</span> 59% 레이턴시 절감
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.82rem;">
+        <span style="color:var(--accent-violet);">●</span> DAG 기반 병렬 실행
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.82rem;">
+        <span style="color:var(--accent-amber);">●</span> Rust + gRPC 코어
+      </div>
+    </div>
+    <div class="reveal reveal-delay-4" style="margin-top:60px;">
+      <a href="#slide-1" style="color:var(--text-muted);text-decoration:none;font-size:0.8rem;display:flex;flex-direction:column;align-items:center;gap:6px;transition:color 0.3s;">
+        <span>아래로 스크롤</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>2026.03</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 1 — THE PROBLEM                           -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-1">
+  <div class="slide-inner">
+    <div class="slide-number reveal">01 — 문제 인식</div>
+    <h2 class="reveal reveal-delay-1">
+      단일 에이전트의 한계,<br><span class="gradient-text">그리고 자연어의 비효율</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin-bottom:36px;">
+      현재 대부분의 AI 코딩 어시스턴트는 하나의 에이전트가 모든 작업을 순차적으로 처리합니다.
+      에이전트 간 소통은 자연어에 의존하며, 이는 규모가 커질수록 치명적인 병목이 됩니다.
+    </p>
+
+    <div class="card-grid card-grid-3">
+      <div class="card reveal reveal-delay-2">
+        <div class="card-icon rose">⚡</div>
+        <div class="card-title">O(n²) 컨텍스트 폭발</div>
+        <div class="card-desc">자연어(NL) 핸드오프는 매 단계마다 이전 대화 전체를 재전송합니다. 10단계 파이프라인에서 누적 토큰은 48,500개에 달합니다.</div>
+      </div>
+      <div class="card reveal reveal-delay-3">
+        <div class="card-icon amber">🎯</div>
+        <div class="card-title">신뢰성 급락</div>
+        <div class="card-desc">NL 기반 파이프라인의 완료율은 단계가 깊어질수록 급격히 하락합니다. 20단계에서 완료율은 30%까지 떨어집니다.</div>
+      </div>
+      <div class="card reveal reveal-delay-4">
+        <div class="card-icon violet">💸</div>
+        <div class="card-title">비용 비효율</div>
+        <div class="card-desc">자유형식 응답은 서론, 부연 설명, 마크다운 포매팅 등 불필요한 토큰을 2~3배 더 생성하여 비용을 낭비합니다.</div>
+      </div>
+    </div>
+
+    <div class="quote-block reveal reveal-delay-5">
+      "에이전트가 많아질수록 자연어 통신의 비용은 기하급수적으로 증가하지만,<br>
+      작업의 품질은 반비례하여 저하됩니다."
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>01 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 2 — WHAT IS ACL                           -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-2">
+  <div class="slide-inner">
+    <div class="slide-number reveal">02 — ACL 소개</div>
+    <h2 class="reveal reveal-delay-1">
+      <span class="gradient-text">Agent Collaboration Layer</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin-bottom:40px;">
+      ACL은 에이전트 간 <strong style="color:var(--accent-cyan)">비언어적(non-linguistic)</strong> 통신 및 오케스트레이션 런타임입니다.
+      자연어 프롬프트 대신 타입 기반 ActionPacket, 상태 전이, 아티팩트 참조로 협업합니다.
+    </p>
+
+    <div class="card-grid card-grid-2">
+      <div class="card reveal reveal-delay-2 glow-box">
+        <div class="card-icon cyan">📦</div>
+        <div class="card-title">ActionPacket</div>
+        <div class="card-desc">
+          모든 작업 요청은 ~180 bytes (~45 tokens) 크기의 타입화된 패킷으로 구조화됩니다.
+          <span style="color:var(--accent-emerald);">파이프라인 깊이와 무관하게 상수 크기를 유지합니다.</span>
+          <br><br>
+          <code style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--accent-cyan);background:rgba(56,189,248,0.08);padding:2px 6px;border-radius:4px;">
+            { packet_id, intent, constraints, output_schema, priority }
+          </code>
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-3 glow-box">
+        <div class="card-icon emerald">🔄</div>
+        <div class="card-title">State Machine</div>
+        <div class="card-desc">
+          각 태스크는 결정론적 상태 머신으로 관리됩니다.
+          <br><br>
+          <code style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--accent-emerald);background:rgba(52,211,153,0.08);padding:2px 6px;border-radius:4px;">
+            PENDING → CLAIMED → RUNNING → DONE | FAILED
+          </code>
+          <br><br>
+          각 전이마다 이벤트가 발행되고, 의존성 그래프(DAG)가 자동으로 해소됩니다.
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-4 glow-box">
+        <div class="card-icon violet">🗄️</div>
+        <div class="card-title">Artifact Store</div>
+        <div class="card-desc">
+          모든 산출물은 SHA-256 해시 기반 content-addressable 저장소에 보관됩니다.
+          <code style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--accent-violet);background:rgba(167,139,250,0.08);padding:2px 6px;border-radius:4px;">
+            artifact://type/hash
+          </code>
+          URI로 참조하여 데이터 재전송을 방지합니다.
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-5 glow-box">
+        <div class="card-icon amber">🛡️</div>
+        <div class="card-title">Policy Engine</div>
+        <div class="card-desc">
+          스폰 제한, 예산 한도(USD), TTL, 도구 접근 제어를 프로토콜 수준에서 관리합니다.
+          정책에 의해 비용 폭주를 원천 차단하고, 에이전트 간 권한을 세밀하게 제어합니다.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>02 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 3 — ARCHITECTURE                          -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-3" style="background: radial-gradient(ellipse at 30% 60%, rgba(167,139,250,0.06), transparent 70%);">
+  <div class="slide-inner">
+    <div class="slide-number reveal">03 — 시스템 아키텍처</div>
+    <h2 class="reveal reveal-delay-1">
+      Rust 코어 위에 세워진<br><span class="gradient-text">고성능 런타임</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <div class="reveal reveal-delay-2" style="background:var(--bg-card);border:1px solid rgba(56,189,248,0.08);border-radius:16px;padding:36px;margin-top:32px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:1.9;color:var(--text-secondary);overflow-x:auto;">
+<pre style="margin:0;">
+<span style="color:var(--accent-cyan);">┌───────────────────────────────────────────────────────────────────┐</span>
+<span style="color:var(--accent-cyan);">│</span>                    <span style="color:var(--accent-cyan);font-weight:700;">ACL Runtime (Rust Core)</span>                       <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>                                                                   <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-emerald);">┌──────────────┐</span>  <span style="color:var(--accent-violet);">┌──────────────┐</span>  <span style="color:var(--accent-amber);">┌───────────────────┐</span>  <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-emerald);">│  Task Graph   │</span>  <span style="color:var(--accent-violet);">│  Event Bus   │</span>  <span style="color:var(--accent-amber);">│  Agent Registry   │</span>  <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-emerald);">│  Engine (DAG) │</span>  <span style="color:var(--accent-violet);">│  (broadcast) │</span>  <span style="color:var(--accent-amber);">│  (capability)     │</span>  <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-emerald);">└──────┬───────┘</span>  <span style="color:var(--accent-violet);">└──────┬───────┘</span>  <span style="color:var(--accent-amber);">└─────────┬─────────┘</span>  <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>         │                  │                     │              <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--text-primary);">┌──────┴──────────────────┴─────────────────────┴───────────┐</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--text-primary);">│                 AclRuntime Orchestrator                    │</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--text-primary);">└──────┬──────────────────┬─────────────────────┬───────────┘</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>         │                  │                     │              <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-rose);">┌──────┴───────┐</span>  <span style="color:var(--accent-cyan);">┌──────┴───────┐</span>  <span style="color:var(--accent-emerald);">┌─────┴─────────────┐</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-rose);">│  Artifact    │</span>  <span style="color:var(--accent-cyan);">│  Policy      │</span>  <span style="color:var(--accent-emerald);">│  Spawn Manager    │</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-rose);">│  Store       │</span>  <span style="color:var(--accent-cyan);">│  Engine      │</span>  <span style="color:var(--accent-emerald);">│  (lifecycle)      │</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:var(--accent-rose);">└──────────────┘</span>  <span style="color:var(--accent-cyan);">└──────────────┘</span>  <span style="color:var(--accent-emerald);">└───────────────────┘</span> <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>                          │                                       <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:#f1f5f9;">┌───────────────────────┴────────────────────────────────┐</span>    <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:#f1f5f9;">│           gRPC Server (tonic) — Port 50051              │</span>    <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">│</span>  <span style="color:#f1f5f9;">└─────────────────────────────────────────────────────────┘</span>    <span style="color:var(--accent-cyan);">│</span>
+<span style="color:var(--accent-cyan);">└───────────────────────────────────────────────────────────────────┘</span>
+                              │ <span style="color:var(--text-muted);">Protocol Buffers</span>
+                              ▼
+<span style="color:var(--accent-violet);">┌───────────────────────────────────────────────────────────────────┐</span>
+<span style="color:var(--accent-violet);">│</span>              <span style="color:var(--accent-violet);font-weight:700;">Client SDKs & CLI Agents</span>                          <span style="color:var(--accent-violet);">│</span>
+<span style="color:var(--accent-violet);">│</span>   <span style="color:var(--accent-emerald);">Python</span>  ·  <span style="color:var(--accent-cyan);">TypeScript</span>  ·  <span style="color:var(--accent-amber);">Codex</span>  ·  <span style="color:var(--accent-violet);">Claude</span>  ·  <span style="color:var(--accent-rose);">Gemini</span>     <span style="color:var(--accent-violet);">│</span>
+<span style="color:var(--accent-violet);">└───────────────────────────────────────────────────────────────────┘</span>
+</pre>
+    </div>
+
+    <div class="card-grid card-grid-4 reveal reveal-delay-3" style="margin-top:24px;">
+      <div style="text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent-cyan);">4</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);">RUST CRATES</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent-emerald);">gRPC</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);">TONIC SERVER</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent-violet);">Proto</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);">TYPE-SAFE IDL</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent-amber);">SHA-256</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);">ARTIFACT STORE</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>03 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 4 — DAG PIPELINES                         -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-4">
+  <div class="slide-inner">
+    <div class="slide-number reveal">04 — DAG 기반 파이프라인</div>
+    <h2 class="reveal reveal-delay-1">
+      복잡한 작업을<br><span class="gradient-emerald">병렬 실행 웨이브</span>로 분해
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin-bottom:24px;">
+      모든 코딩 워크플로우는 방향 비순환 그래프(DAG)로 분해되고,
+      위상 정렬을 통해 병렬 실행 가능한 웨이브로 자동 배치됩니다.
+    </p>
+
+    <!-- Feature Implementation Pipeline -->
+    <div class="card reveal reveal-delay-3" style="margin-top:24px;">
+      <h3 style="color:var(--accent-cyan);margin-bottom:20px;">Feature Implementation Pipeline</h3>
+      <div class="arch-flow">
+        <div class="arch-node">
+          <div class="arch-node-label">Wave 1</div>
+          <div class="arch-node-name">Analyze</div>
+          <div style="font-size:0.7rem;color:var(--accent-violet);margin-top:4px;">Claude</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="wave-group">
+          <div class="arch-node">
+            <div class="arch-node-label">Wave 2</div>
+            <div class="arch-node-name">Core</div>
+            <div style="font-size:0.7rem;color:var(--accent-emerald);margin-top:4px;">Codex</div>
+          </div>
+          <div class="arch-node">
+            <div class="arch-node-label">Wave 2</div>
+            <div class="arch-node-name">Support</div>
+            <div style="font-size:0.7rem;color:var(--accent-emerald);margin-top:4px;">Codex</div>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="wave-group">
+          <div class="arch-node">
+            <div class="arch-node-label">Wave 3</div>
+            <div class="arch-node-name">Test</div>
+            <div style="font-size:0.7rem;color:var(--accent-violet);margin-top:4px;">Claude</div>
+          </div>
+          <div class="arch-node">
+            <div class="arch-node-label">Wave 3</div>
+            <div class="arch-node-name">Review</div>
+            <div style="font-size:0.7rem;color:var(--accent-violet);margin-top:4px;">Claude</div>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">
+          <div class="arch-node-label">Wave 4</div>
+          <div class="arch-node-name">Finalize</div>
+          <div style="font-size:0.7rem;color:var(--accent-amber);margin-top:4px;">Gemini</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-grid card-grid-3 reveal reveal-delay-4">
+      <div class="card" style="padding:20px;">
+        <div class="card-title" style="font-size:0.95rem;color:var(--accent-rose);">🐛 Bug Fix</div>
+        <div class="card-desc" style="font-size:0.8rem;font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          diagnose →<br>[fix-a, fix-b, test] →<br>verify
+        </div>
+      </div>
+      <div class="card" style="padding:20px;">
+        <div class="card-title" style="font-size:0.95rem;color:var(--accent-emerald);">♻️ Refactoring</div>
+        <div class="card-desc" style="font-size:0.8rem;font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          analyze → plan →<br>[mod-a, mod-b] →<br>integration → review
+        </div>
+      </div>
+      <div class="card" style="padding:20px;">
+        <div class="card-title" style="font-size:0.95rem;color:var(--accent-violet);">🔍 Code Review</div>
+        <div class="card-desc" style="font-size:0.8rem;font-family:'JetBrains Mono',monospace;line-height:1.6;">
+          [claude-review,<br>&nbsp;gemini-review] →<br>synthesize
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>04 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 5 — MULTI-CLI ORCHESTRATION               -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-5" style="background: radial-gradient(ellipse at 70% 40%, rgba(52,211,153,0.06), transparent 70%);">
+  <div class="slide-inner">
+    <div class="slide-number reveal">05 — 멀티 에이전트 라우팅</div>
+    <h2 class="reveal reveal-delay-1">
+      각 에이전트의 강점에<br><span class="gradient-emerald">자동으로 라우팅</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin-bottom:32px;">
+      Codex, Claude, Gemini를 능력 기반으로 자동 라우팅합니다.
+      하나의 CLI만 설치되어 있어도 모든 작업이 자동으로 해당 에이전트로 전달됩니다.
+    </p>
+
+    <div class="card-grid card-grid-3 reveal reveal-delay-3">
+      <div class="card" style="border-top:3px solid var(--accent-emerald);">
+        <div style="font-size:1.5rem;margin-bottom:12px;">⚡</div>
+        <div class="card-title">Codex</div>
+        <div class="card-desc" style="margin-bottom:16px;">빠른 코드 생성에 특화</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="tag tag-real">code_generation</span>
+          <span class="tag tag-real">implement</span>
+          <span class="tag tag-real">refactor</span>
+          <span class="tag tag-real">boilerplate</span>
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--accent-violet);">
+        <div style="font-size:1.5rem;margin-bottom:12px;">🧠</div>
+        <div class="card-title">Claude</div>
+        <div class="card-desc" style="margin-bottom:16px;">분석과 리뷰에 강점</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="tag tag-sim">code_review</span>
+          <span class="tag tag-sim">bug_analysis</span>
+          <span class="tag tag-sim">architecture</span>
+          <span class="tag tag-sim">test_gen</span>
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--accent-amber);">
+        <div style="font-size:1.5rem;margin-bottom:12px;">🔬</div>
+        <div class="card-title">Gemini</div>
+        <div class="card-desc" style="margin-bottom:16px;">리서치와 문서화에 탁월</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="tag" style="background:rgba(251,113,133,0.15);color:var(--accent-rose);">research</span>
+          <span class="tag" style="background:rgba(251,113,133,0.15);color:var(--accent-rose);">documentation</span>
+          <span class="tag" style="background:rgba(251,113,133,0.15);color:var(--accent-rose);">large_context</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal reveal-delay-4" style="margin-top:24px;padding:20px 28px;">
+      <h3 style="color:var(--accent-cyan);font-size:0.95rem;margin-bottom:14px;">Intent Routing Table</h3>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;line-height:2;color:var(--text-secondary);">
+        <span style="color:var(--accent-cyan);">code_generation</span> → Codex <span style="color:var(--text-muted);">(fallback: Gemini → Claude)</span><br>
+        <span style="color:var(--accent-violet);">code_review</span> → Claude <span style="color:var(--text-muted);">(fallback: Gemini)</span><br>
+        <span style="color:var(--accent-violet);">bug_analysis</span> → Claude <span style="color:var(--text-muted);">(fallback: Gemini → Codex)</span><br>
+        <span style="color:var(--accent-amber);">documentation</span> → Gemini <span style="color:var(--text-muted);">(fallback: Claude)</span><br>
+        <span style="color:var(--text-muted);">Tie-breaking:</span> <span style="color:var(--accent-emerald);">trust_score > latency > cost</span>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>05 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 6 — REAL BENCHMARK                        -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-6">
+  <div class="slide-inner">
+    <div class="slide-number reveal">06 — 실측 성능 데이터</div>
+    <h2 class="reveal reveal-delay-1">
+      실제 API 호출로 검증된<br><span class="gradient-text">성능 우위</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin-bottom:20px;">
+      Anthropic Claude API (claude-haiku-4-5) 실측 기반. 3-Step Pipeline: Research → Write → Review
+    </p>
+
+    <div class="card-grid card-grid-3 reveal reveal-delay-3">
+      <div class="metric-card glow-box">
+        <div class="metric-value" style="color:var(--accent-emerald);">55%</div>
+        <div class="metric-label">총 토큰 절감</div>
+        <span class="tag tag-real" style="margin-top:8px;">실측</span>
+      </div>
+      <div class="metric-card glow-box">
+        <div class="metric-value" style="color:var(--accent-cyan);">59.3%</div>
+        <div class="metric-label">API 레이턴시 절감</div>
+        <span class="tag tag-real" style="margin-top:8px;">실측</span>
+      </div>
+      <div class="metric-card glow-box">
+        <div class="metric-value" style="color:var(--accent-violet);">13%</div>
+        <div class="metric-label">비용 절감 (3-step)</div>
+        <span class="tag tag-real" style="margin-top:8px;">실측</span>
+      </div>
+    </div>
+
+    <!-- Bar Comparison -->
+    <div class="card reveal reveal-delay-4" style="margin-top:20px;">
+      <h3 style="color:var(--accent-cyan);font-size:0.95rem;margin-bottom:20px;">ACL vs NL — 실측 비교</h3>
+
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">총 토큰 (ACL)</span>
+          <span class="value" style="color:var(--accent-emerald);">1,745</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill acl" style="--w:45%;"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">총 토큰 (NL)</span>
+          <span class="value" style="color:var(--accent-rose);">3,877</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill nl" style="--w:100%;"></div></div>
+      </div>
+
+      <div style="height:20px;"></div>
+
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">레이턴시 (ACL)</span>
+          <span class="value" style="color:var(--accent-emerald);">17,060ms</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill acl" style="--w:40.7%;"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">레이턴시 (NL)</span>
+          <span class="value" style="color:var(--accent-rose);">41,946ms</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill nl" style="--w:100%;"></div></div>
+      </div>
+
+      <div style="height:20px;"></div>
+
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">비용 (ACL)</span>
+          <span class="value" style="color:var(--accent-emerald);">$0.0343</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill acl" style="--w:87%;"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label-row">
+          <span class="label">비용 (NL)</span>
+          <span class="value" style="color:var(--accent-rose);">$0.0394</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill nl" style="--w:100%;"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>06 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 7 — COST SAVINGS & SCALE                  -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-7" style="background: radial-gradient(ellipse at 50% 50%, rgba(52,211,153,0.06), transparent 70%);">
+  <div class="slide-inner">
+    <div class="slide-number reveal">07 — 비용 절감 & 확장성</div>
+    <h2 class="reveal reveal-delay-1">
+      규모가 커질수록<br><span class="gradient-emerald">격차는 벌어진다</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <div class="card-grid card-grid-2">
+      <!-- Token Efficiency Table -->
+      <div class="card reveal reveal-delay-3">
+        <h3 style="color:var(--accent-cyan);font-size:0.95rem;margin-bottom:16px;">스케일별 토큰 효율</h3>
+        <table class="data-table">
+          <tr><th>Steps</th><th class="num">ACL</th><th class="num">NL</th><th class="num">절감</th></tr>
+          <tr><td>3 <span class="tag tag-real" style="font-size:0.6rem;">실측</span></td><td class="num">1,745</td><td class="num">3,877</td><td class="num highlight">55%</td></tr>
+          <tr><td>5</td><td class="num">~2,900</td><td class="num">~8,500</td><td class="num highlight">~66%</td></tr>
+          <tr><td>10</td><td class="num">~5,800</td><td class="num">~28,000</td><td class="num highlight">~79%</td></tr>
+          <tr><td>15</td><td class="num">~8,700</td><td class="num">~58,000</td><td class="num highlight">~85%</td></tr>
+          <tr><td>20</td><td class="num">~11,600</td><td class="num">~100,000</td><td class="num highlight">~88%</td></tr>
+        </table>
+      </div>
+
+      <!-- Reliability -->
+      <div class="card reveal reveal-delay-4">
+        <h3 style="color:var(--accent-violet);font-size:0.95rem;margin-bottom:16px;">파이프라인 완료율</h3>
+        <table class="data-table">
+          <tr><th>Steps</th><th class="num">ACL</th><th class="num">NL</th><th class="num">차이</th></tr>
+          <tr><td>3</td><td class="num highlight">99%</td><td class="num" style="color:var(--accent-amber);">82%</td><td class="num highlight">+17%</td></tr>
+          <tr><td>5</td><td class="num highlight">99%</td><td class="num" style="color:var(--accent-amber);">70%</td><td class="num highlight">+29%</td></tr>
+          <tr><td>10</td><td class="num highlight">97%</td><td class="num danger">40%</td><td class="num highlight">+57%</td></tr>
+          <tr><td>15</td><td class="num highlight">95%</td><td class="num danger">30%</td><td class="num highlight">+65%</td></tr>
+          <tr><td>20</td><td class="num highlight">93%</td><td class="num danger">30%</td><td class="num highlight">+63%</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Production Projection -->
+    <div class="card reveal reveal-delay-5" style="margin-top:20px;">
+      <h3 style="color:var(--accent-emerald);font-size:0.95rem;margin-bottom:16px;">프로덕션 비용 프로젝션 (5-step, claude-sonnet 기준)</h3>
+      <table class="data-table">
+        <tr><th>일일 파이프라인</th><th class="num">월간 절감 토큰</th><th class="num">월간 절감액</th><th class="num">연간 절감액</th></tr>
+        <tr><td>100</td><td class="num">38.3M</td><td class="num">$172</td><td class="num highlight">$2,072</td></tr>
+        <tr><td>1,000</td><td class="num">383M</td><td class="num">$1,727</td><td class="num highlight">$20,724</td></tr>
+        <tr><td>10,000</td><td class="num">3.8B</td><td class="num">$17,270</td><td class="num highlight">$207,242</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>07 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 8 — PROTOCOL COMPARISON                   -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-8">
+  <div class="slide-inner">
+    <div class="slide-number reveal">08 — 프로토콜 비교</div>
+    <h2 class="reveal reveal-delay-1">
+      ACL Typed Protocol<br><span style="color:var(--accent-rose);">vs Natural Language</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <div class="vs-container reveal reveal-delay-3">
+      <!-- ACL Side -->
+      <div class="card" style="border-top:3px solid var(--accent-emerald);">
+        <h3 style="color:var(--accent-emerald);margin-bottom:20px;">ACL (Typed Protocol)</h3>
+        <div class="timeline" style="padding-left:30px;">
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-emerald);">O(1) 패킷 크기</div>
+            <div class="timeline-desc">~45 tokens 고정, 파이프라인 깊이와 무관</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-emerald);">컴파일 타임 검증</div>
+            <div class="timeline-desc">스키마 위반 즉시 탐지, 포맷 드리프트 없음</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-emerald);">결정론적 재시도</div>
+            <div class="timeline-desc">실패 시 동일한 ActionPacket으로 재전송</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VS -->
+      <div class="vs-divider">
+        <div class="vs-badge">VS</div>
+        <div class="vs-line"></div>
+      </div>
+
+      <!-- NL Side -->
+      <div class="card" style="border-top:3px solid var(--accent-rose);">
+        <h3 style="color:var(--accent-rose);margin-bottom:20px;">NL (Natural Language)</h3>
+        <div class="timeline" style="padding-left:30px;">
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-rose);">O(n) 핸드오프 크기</div>
+            <div class="timeline-desc">800~6,500+ tokens, 단계마다 누적 성장</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-rose);">검증 없음</div>
+            <div class="timeline-desc">Best-effort 파싱, 지연된 에러 탐지</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-title" style="color:var(--accent-rose);">비결정론적 재시도</div>
+            <div class="timeline-desc">동일 프롬프트에도 다른 결과 가능</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal reveal-delay-4" style="margin-top:24px;padding:20px 28px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center;">
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Artifact Passing</div>
+          <div style="font-size:0.88rem;color:var(--accent-emerald);">Content-addressed URI</div>
+          <div style="font-size:0.75rem;color:var(--accent-rose);margin-top:2px;">vs Inline (bloated)</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Budget Governance</div>
+          <div style="font-size:0.88rem;color:var(--accent-emerald);">Policy-enforced</div>
+          <div style="font-size:0.75rem;color:var(--accent-rose);margin-top:2px;">vs Manual tracking</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Multi-Model</div>
+          <div style="font-size:0.88rem;color:var(--accent-emerald);">Uniform interface</div>
+          <div style="font-size:0.75rem;color:var(--accent-rose);margin-top:2px;">vs Per-model prompts</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>08 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 9 — EXPECTED EFFECTS                      -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-9" style="background: radial-gradient(ellipse at 40% 50%, rgba(56,189,248,0.06), transparent 70%);">
+  <div class="slide-inner">
+    <div class="slide-number reveal">09 — 기대 효과</div>
+    <h2 class="reveal reveal-delay-1">
+      ACL이 가져올<br><span class="gradient-text">근본적인 변화</span>
+    </h2>
+    <div class="animated-line reveal reveal-delay-2"></div>
+
+    <div class="card-grid card-grid-2">
+      <div class="card reveal reveal-delay-2 glow-box">
+        <div class="card-icon emerald">💰</div>
+        <div class="card-title">비용 혁신</div>
+        <div class="card-desc">
+          프로덕션 규모(10K 파이프라인/일)에서 <strong style="color:var(--accent-emerald);">연간 $207K 절감</strong>.
+          고비용 모델(Claude Opus)에서는 1K 핸드오프당 $175.95 절감.
+          규모가 커질수록 O(n) vs O(n²) 복잡도 차이가 기하급수적 절감으로 이어집니다.
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-3 glow-box">
+        <div class="card-icon cyan">🚀</div>
+        <div class="card-title">속도 향상</div>
+        <div class="card-desc">
+          JSON 스키마 강제로 <strong style="color:var(--accent-cyan);">59% 레이턴시 절감</strong>.
+          불필요한 서론과 부연 설명을 제거하여 LLM이 구조화된 데이터만 생성합니다.
+          DAG 기반 병렬 실행으로 전체 파이프라인 완료 시간도 대폭 단축됩니다.
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-4 glow-box">
+        <div class="card-icon violet">🛡️</div>
+        <div class="card-title">안정성 보장</div>
+        <div class="card-desc">
+          20단계 파이프라인에서 <strong style="color:var(--accent-violet);">ACL 93% vs NL 30%</strong> 완료율.
+          Typed state transitions으로 포맷 드리프트를 제거하고,
+          결정론적 재시도 메커니즘으로 에러 캐스케이드를 방지합니다.
+        </div>
+      </div>
+      <div class="card reveal reveal-delay-5 glow-box">
+        <div class="card-icon amber">🔍</div>
+        <div class="card-title">완전한 관측성</div>
+        <div class="card-desc">
+          모든 에이전트 간 통신이 typed event stream으로 기록됩니다.
+          태스크 상태, 아티팩트 흐름, 비용 추적이 <strong style="color:var(--accent-amber);">프로토콜 수준에서 보장</strong>되어
+          디버깅과 감사가 즉각적으로 가능합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal reveal-delay-6" style="margin-top:24px;text-align:center;padding:28px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;">
+        <div>
+          <div style="font-size:2.4rem;font-weight:900;color:var(--accent-emerald);">$207K</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">연간 절감 (10K/일)</div>
+        </div>
+        <div>
+          <div style="font-size:2.4rem;font-weight:900;color:var(--accent-cyan);">59%</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">레이턴시 절감</div>
+        </div>
+        <div>
+          <div style="font-size:2.4rem;font-weight:900;color:var(--accent-violet);">93%</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">20-step 완료율</div>
+        </div>
+        <div>
+          <div style="font-size:2.4rem;font-weight:900;color:var(--accent-amber);">3.1x</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">출력 효율 향상</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>09 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SLIDE 10 — VISION & CLOSING                     -->
+<!-- ════════════════════════════════════════════════ -->
+<section class="slide" id="slide-10" style="background: radial-gradient(ellipse at 50% 50%, rgba(167,139,250,0.08), transparent 70%);">
+  <div class="slide-inner" style="text-align:center;">
+    <div class="slide-number reveal">10 — 미래 비전</div>
+    <h2 class="reveal reveal-delay-1" style="font-size:3.2rem;">
+      <span class="gradient-text">에이전트의 협업이</span><br>소프트웨어 개발을 바꾼다
+    </h2>
+    <div class="animated-line reveal reveal-delay-2" style="margin:20px auto 32px;"></div>
+
+    <p class="subtitle reveal reveal-delay-2" style="margin:0 auto 48px;text-align:center;">
+      ACL은 단순한 도구가 아닌, AI 에이전트들이 효율적으로 협업하는<br>
+      새로운 패러다임의 시작입니다.
+    </p>
+
+    <div class="card-grid card-grid-4 reveal reveal-delay-3">
+      <div class="card" style="text-align:center;padding:24px 16px;">
+        <div style="font-size:2rem;margin-bottom:12px;">🌐</div>
+        <div class="card-title" style="font-size:0.9rem;">Web Dashboard</div>
+        <div class="card-desc" style="font-size:0.78rem;">파이프라인 시각화 및 실시간 모니터링</div>
+      </div>
+      <div class="card" style="text-align:center;padding:24px 16px;">
+        <div style="font-size:2rem;margin-bottom:12px;">🔌</div>
+        <div class="card-title" style="font-size:0.9rem;">Plugin System</div>
+        <div class="card-desc" style="font-size:0.78rem;">추가 CLI 에이전트 확장 지원</div>
+      </div>
+      <div class="card" style="text-align:center;padding:24px 16px;">
+        <div style="font-size:2rem;margin-bottom:12px;">📊</div>
+        <div class="card-title" style="font-size:0.9rem;">Advanced Analytics</div>
+        <div class="card-desc" style="font-size:0.78rem;">에이전트별 성능 분석 및 최적화</div>
+      </div>
+      <div class="card" style="text-align:center;padding:24px 16px;">
+        <div style="font-size:2rem;margin-bottom:12px;">🤝</div>
+        <div class="card-title" style="font-size:0.9rem;">Self-Improving</div>
+        <div class="card-desc" style="font-size:0.78rem;">파이프라인 결과 학습을 통한 자동 최적화</div>
+      </div>
+    </div>
+
+    <div class="reveal reveal-delay-4" style="margin-top:48px;">
+      <div style="display:inline-flex;align-items:center;gap:12px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.12);border-radius:40px;padding:12px 28px;">
+        <span style="font-size:0.9rem;color:var(--text-secondary);">Built with</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--accent-cyan);">Rust</span>
+        <span style="color:var(--text-muted);">·</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--accent-violet);">gRPC</span>
+        <span style="color:var(--text-muted);">·</span>
+        <span style="font-size:0.9rem;font-weight:700;color:var(--accent-emerald);">Protocol Buffers</span>
+      </div>
+    </div>
+
+    <div class="reveal reveal-delay-5" style="margin-top:20px;">
+      <p style="font-size:0.85rem;color:var(--text-muted);">Agent Collaboration Layer v0.1.0 — MIT License</p>
+    </div>
+  </div>
+  <div class="slide-footer">
+    <span>ACL Presentation</span>
+    <span>10 / 10</span>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!-- SCRIPTS                                          -->
+<!-- ════════════════════════════════════════════════ -->
+<script>
+// ─── Particles ───
+(function initParticles() {
+  const container = document.getElementById('particles');
+  const colors = ['#38bdf8', '#34d399', '#a78bfa', '#fbbf24', '#fb7185'];
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (Math.random() * 20 + 15) + 's';
+    p.style.animationDelay = (Math.random() * 15) + 's';
+    container.appendChild(p);
+  }
+})();
+
+// ─── Scroll Progress ───
+const progressBar = document.getElementById('scrollProgress');
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  progressBar.style.width = (scrollTop / docHeight * 100) + '%';
+});
+
+// ─── IntersectionObserver for Reveals ───
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('show');
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.reveal, .reveal-scale, .reveal-left, .reveal-right').forEach(el => {
+  observer.observe(el);
+});
+
+// ─── Slide visibility for backgrounds ───
+const slideObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    } else {
+      entry.target.classList.remove('visible');
+    }
+  });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.slide').forEach(s => slideObserver.observe(s));
+
+// ─── Nav Dots ───
+const dots = document.querySelectorAll('.nav-dot');
+const slides = document.querySelectorAll('.slide');
+
+const dotObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const idx = Array.from(slides).indexOf(entry.target);
+      dots.forEach(d => d.classList.remove('active'));
+      if (dots[idx]) dots[idx].classList.add('active');
+    }
+  });
+}, { threshold: 0.5 });
+
+slides.forEach(s => dotObserver.observe(s));
+
+dots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    const idx = dot.getAttribute('data-slide');
+    document.getElementById('slide-' + idx).scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+// ─── Animated Counters ───
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting && !entry.target.dataset.counted) {
+      entry.target.dataset.counted = 'true';
+      const target = parseFloat(entry.target.dataset.target);
+      const suffix = entry.target.dataset.suffix || '';
+      const prefix = entry.target.dataset.prefix || '';
+      const duration = 1500;
+      const start = performance.now();
+      function update(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = eased * target;
+        entry.target.textContent = prefix + (target % 1 !== 0 ? current.toFixed(1) : Math.round(current)) + suffix;
+        if (progress < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('.counter').forEach(el => counterObserver.observe(el));
+
+// ─── Keyboard Navigation ───
+document.addEventListener('keydown', (e) => {
+  const currentSlide = Math.round(window.scrollY / window.innerHeight);
+  if (e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    const next = Math.min(currentSlide + 1, slides.length - 1);
+    slides[next].scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = Math.max(currentSlide - 1, 0);
+    slides[prev].scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+
+</body>
+</html>
